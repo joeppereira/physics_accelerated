@@ -1,22 +1,37 @@
-# SerDes Cognitive Optimizer (SCO) - Repo B
+# 128G SerDes Cognitive Optimization Platform
 
-## Core Purpose
-Accelerated optimization of 128G PAM4 links using Physics-Informed Neural Operators. This repository consumes physical simulation data from **Repo A** (or dummy data) and uses it to train a high-speed surrogate model for sub-10ms design pathfinding.
+This platform integrates a **Physics-Informed Ground Truth Engine** with an **AI Cognitive Optimizer** to accelerate 128G PAM4 design pathfinding.
 
-## Tech Specs (3nm)
-- **Node:** TSMC 3nm FinFET.
-- **Rule:** DFE Tap-1 Limit = 35.0 mV.
-- **Rule:** Thermal Ceiling = 105.0 °C.
-- **Rule:** Target Efficiency < 0.60 pJ/bit.
+## Key Documentation
+- **[Developer Onboarding](Developer_Onboarding.md):** The primary entry point for new developers.
+- **[Executive Sign-off Report](Project_Signoff_Template.md):** The final architectural verdict template.
+- **[Technical Architecture & Developer Guide](TECHNICAL_ARCHITECTURE.md):** Deep dive into the physics loops, thermal taxes, and AI loss functions.
 
-## Skills Required (Gemini CLI)
-- **Spectral AI:** Implementing FNO (Fourier Neural Operators).
-- **Physical Handshaking:** Parquet metadata extraction and logic enforcement.
-- **EDA Workflows:** PPA optimization and Yield analysis.
+## Directory Structure
+- `physics_core/`: The "Ground Truth" Engine (Simulated Physics).
+- `cognitive_optimizer/`: The AI Acceleration Layer (Surrogate Models).
+- `reports/`: Automated Sign-off PDFs and JSONs.
+- `run_full_cycle.sh`: The Master Orchestrator script.
 
-## Usage
-1. **Setup:** `pip install -r requirements.txt`
-2. **Data:** `python src/dummy_gen.py` (Generates physically-grounded data)
-3. **Train:** `python src/train.py` (Physics-informed training)
-4. **Optimize:** `python src/gepa.py` (Evolutionary Reflection Logic)
-5. **Visualize:** `python src/visualizer.py`
+## Getting Started
+
+### 1. Installation
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Hardware Acceleration (Apple Silicon M-Series)
+If you are running on an M4 (or M1/M2/M3) chip, ensure you have the `mps` (Metal Performance Shaders) backend enabled in PyTorch for accelerated training.
+```bash
+# Verify MPS availability
+python3 -c "import torch; print(torch.backends.mps.is_available())"
+```
+*Note: The script automatically detects `mps` if available.*
+
+### 3. Run the Platform
+To run the full design cycle (Physics -> Train -> Optimize -> Report):
+```bash
+bash run_full_cycle.sh
+```
