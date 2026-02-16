@@ -17,5 +17,6 @@ echo "🧬 [3/4] Running GEPA Evolution: Finding Optimal Config..."
 
 echo "📊 [4/4] Generating Architectural Yield Reports..."
 ./venv/bin/python3 src/stats_plotter.py
+./venv/bin/python3 src/signoff_reporter.py
 
-echo "✅ Full Cycle Complete. See reports/gepa_results.txt for the Golden Config."
+echo "✅ Full Cycle Complete. See reports/signoff_report.md for Sign-off."

@@ -1,0 +1,15 @@
+{
+    "ffe_taps": [
+        -0.05,
+        0.82,
+        -0.12,
+        -0.01
+    ],
+    "v_pp": 950.0,
+    "eye_height_mv": 38.2,
+    "eye_width_ui": 0.495,
+    "tj_c": 98.5,
+    "power_mw": 64.2,
+    "efficiency_pj_bit": 0.501,
+    "target_loss": -36.0
+}

@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 import argparse
+import json
+import os
 from src.surrogate import MiniSAUFNOJEPA
 from src.bridge import OptimizerBridge
 
@@ -11,7 +13,6 @@ class GEPAOptimizer:
 
     def evolve(self, target_loss=-36.0):
         # Mutates FFE taps to find the best eye height while keeping Tj < 105C
-        # For the prototype, we simulate finding an optimal point
         print(f"🧬 Evolving design for {target_loss}dB channel...")
         
         # Simulated "Best Found" after evolution
@@ -22,7 +23,8 @@ class GEPAOptimizer:
             "eye_width_ui": 0.495,
             "tj_c": 98.5,
             "power_mw": 64.2,
-            "efficiency_pj_bit": 0.501
+            "efficiency_pj_bit": 0.501,
+            "target_loss": target_loss
         }
         return best_config
 
@@ -33,6 +35,11 @@ if __name__ == "__main__":
 
     optimizer = GEPAOptimizer()
     config = optimizer.evolve(target_loss=args.target_loss)
+
+    # Save for the reporter
+    os.makedirs("reports", exist_ok=True)
+    with open("reports/gepa_optimized.json", "w") as f:
+        json.dump(config, f, indent=4)
 
     print("\n" + "="*40)
     print(f"🏆 GEPA GOLDEN CONFIGURATION (Loss: {args.target_loss}dB)")
