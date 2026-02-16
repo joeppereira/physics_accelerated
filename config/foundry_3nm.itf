@@ -1,0 +1,29 @@
+# Foundry 3nm ITF (Interconnect Technology Format)
+# Ground Truth for Material Properties
+
+TECHNOLOGY=3nm_TSMC
+
+DIELECTRIC=Silicon_Dioxide {
+    ER=3.9
+    LOSS_TANGENT=0.001
+}
+
+DIELECTRIC=Low_K {
+    ER=2.4
+    LOSS_TANGENT=0.002
+}
+
+CONDUCTOR=Copper {
+    RESISTIVITY=1.68e-8
+    TC1=0.0038
+}
+
+CONDUCTOR=Ruthenium {
+    RESISTIVITY=7.1e-8
+    TC1=0.0045
+}
+
+# Thermal Properties (C/mW/um^3)
+THERMAL_CONDUCTIVITY=Si:0.15
+THERMAL_CONDUCTIVITY=SiO2:0.0014
+THERMAL_CONDUCTIVITY=Cu:0.4
