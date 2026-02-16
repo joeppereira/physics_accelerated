@@ -27,6 +27,7 @@ echo "🧬 [3/4] Running GEPA Evolution: Finding Optimal Config..."
 # Generates the architectural verdict, comparing AI predictions against physics rules.
 echo "📊 [4/4] Generating Architectural Yield Reports..."
 ./venv/bin/python3 src/stats_plotter.py
+./venv/bin/python3 src/tradeoff_plotter.py
 ./venv/bin/python3 src/signoff_reporter.py
 
 echo "✅ Full Cycle Complete. See reports/signoff_report.md for Sign-off."
