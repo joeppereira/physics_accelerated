@@ -8,27 +8,24 @@ from src.surrogate import MiniSAUFNOJEPA
 from src.schema import FEATURES, TARGETS, NORM_FACTORS, unscale_output
 
 def generate_sweep_data(output_path="simulated_result/sweep_analysis.csv"):
-    print("📊 Generating 3D Trade-off Sweep Data (Normalized Inference)...")
+    print("📊 Generating 3D Trade-off Sweep Data (Aging Aware)...")
     
-    # Load Model
     model = MiniSAUFNOJEPA(in_dim=len(FEATURES), out_dim=len(TARGETS))
     try:
         model.load_state_dict(torch.load("models/surrogate_v1.pth", map_location=torch.device('cpu')))
     except:
-        print("❌ Error: Model not trained. Run src/train.py first.")
+        print("❌ Error: Model not trained.")
         return
 
     model.eval()
     
-    # Sweep Ranges (Physical)
-    bias_range = np.linspace(2, 12, 30) # X
-    area_range = np.linspace(5000, 15000, 30) # Y
+    bias_range = np.linspace(2, 15, 30) 
+    area_range = np.linspace(5000, 15000, 30)
     
     results = []
     
     for bias in bias_range:
         for area in area_range:
-            # Fixed params: FFE nominal, Zrx=100, Loss=-30, Temp=25
             raw_input = {
                 "ffe_m1": -0.05,
                 "ffe_p1": -0.02,
@@ -52,14 +49,15 @@ def generate_sweep_data(output_path="simulated_result/sweep_analysis.csv"):
             with torch.no_grad():
                 pred = model(torch.tensor(scaled_input).float().unsqueeze(0)).numpy()[0]
             
-            # Unscale Output
-            width, height, pwr, tj = unscale_output(pred)
+            # Unscale 5 outputs
+            width, height, pwr, tj, life = unscale_output(pred)
             
             results.append({
                 "bias_current_ma": bias,
                 "area_um2": area,
                 "eye_width_ui": width,
-                "tj_c": tj
+                "tj_c": tj,
+                "lifetime_years": life
             })
             
     df = pd.DataFrame(results)
@@ -75,17 +73,15 @@ def plot_3d_tradeoff(data_path="simulated_result/sweep_analysis.csv"):
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection='3d')
     
-    # Plot Bias Current vs Area vs Margin
-    # Z-axis is Margin (Eye Width)
-    # Color is Tj
-    img = ax.scatter(df['bias_current_ma'], df['area_um2'], df['eye_width_ui'], c=df['tj_c'], cmap='hot')
+    # Plot: X=Bias, Y=Area, Z=Margin, Color=Lifetime
+    img = ax.scatter(df['bias_current_ma'], df['area_um2'], df['eye_width_ui'], c=df['lifetime_years'], cmap='RdYlGn')
     
     ax.set_xlabel('Bias Current (mA)')
     ax.set_ylabel('Area (um2)')
     ax.set_zlabel('UI Margin')
     
-    cbar = fig.colorbar(img, label='Junction Temp (Tj)')
-    plt.title("3nm Architectural Trade-off Surface")
+    cbar = fig.colorbar(img, label='Lifetime (Years)')
+    plt.title("3nm Architectural Trade-off: Reliability Surface")
     
     output_path = "plots/tradeoff_3d.png"
     os.makedirs("plots", exist_ok=True)

@@ -9,22 +9,27 @@ from src.schema import FEATURES, TARGETS
 
 def stable_loss(pred, target):
     """
-    Weighted MSE Loss to combat scale imbalance.
-    Weights: [Width=50.0, Height=1.0, Power=1.0, Tj=1.0]
-    Plus Physics Penalty: Tj must be >= Ambient (25C/125C = 0.2).
+    Weighted MSE Loss with Physics Constraints.
+    Targets: [Width, Height, Power, Tj, Lifetime]
+    Weights: [50.0, 1.0, 1.0, 1.0, 5.0]
     """
-    # Target Order: ["eye_width_ui", "eye_height_mv", "total_pwr_mw", "tj_c"]
-    weights = torch.tensor([50.0, 1.0, 1.0, 1.0]).to(pred.device)
+    # Dynamic weights based on target length
+    if pred.shape[1] == 5:
+        # Lifetime included
+        weights = torch.tensor([50.0, 1.0, 1.0, 1.0, 5.0]).to(pred.device)
+    else:
+        # Fallback for old model
+        weights = torch.tensor([50.0, 1.0, 1.0, 1.0]).to(pred.device)
+        
     loss = torch.mean(weights * (pred - target)**2)
     
     # Physics Constraint: Tj (index 3) cannot be below Ambient (0.2 normalized)
-    # 25.0 / 125.0 = 0.2
     tj_violation = torch.relu(0.2 - pred[:, 3]).mean()
     
     return loss + (10.0 * tj_violation)
 
 def train_model(data_path="data/samples_normalized.parquet", epochs=50):
-    print(f"🚀 Starting Stable Training ({epochs} epochs)...")
+    print(f"🚀 Starting Aging-Aware Training ({epochs} epochs)...")
     
     if not os.path.exists(data_path):
         print("❌ Error: Training data missing.")
@@ -54,7 +59,7 @@ def train_model(data_path="data/samples_normalized.parquet", epochs=50):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
     args = parser.parse_args()
     
     train_model(epochs=args.epochs)
