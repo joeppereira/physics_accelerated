@@ -4,7 +4,7 @@ import os
 from src.surrogate import MiniSAUFNOJEPA
 from src.schema import FEATURES, TARGETS, NORM_FACTORS, unscale_output
 
-def find_min_area_for_spec(model, target_hours, target_margin=0.15):
+def find_min_area_for_spec(model, target_hours, target_margin=0.38):
     best_area = 15000.0
     found = False
     max_margin_seen = 0.0

@@ -7,8 +7,8 @@ from src.schema import NORM_FACTORS, scale_data
 
 def apply_aging_degradation(eye_height, eye_width, hours, temp_c):
     aging_factor = (hours / 87600.0) * np.exp(-1000.0 / (temp_c + 273.15 + 1e-9))
-    eol_height = eye_height * (1.0 - (0.15 * aging_factor)) 
-    eol_width = eye_width - (0.05 * aging_factor)
+    eol_height = eye_height * (1.0 - (0.25 * aging_factor)) 
+    eol_width = eye_width - (0.25 * aging_factor)
     return eol_height, eol_width
 
 def generate_normalized_samples(samples=50000):
