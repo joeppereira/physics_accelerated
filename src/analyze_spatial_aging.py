@@ -54,8 +54,8 @@ def analyze_spatial_aging():
         t_rx = temp_map[layout == 3].mean()
         
         # Margins
-        m0 = calculate_margin(t_rx, bias_rx=15.0, hours=0.0)
-        m10 = calculate_margin(t_rx, bias_rx=15.0, hours=87600.0)
+        m0 = calculate_margin(t_rx, bias_rx=25.0, hours=0.0)
+        m10 = calculate_margin(t_rx, bias_rx=25.0, hours=87600.0)
         
         results_y0.append(m0)
         results_y10.append(m10)
