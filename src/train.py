@@ -1,49 +1,42 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import pandas as pd
 import os
 import argparse
-from src.surrogate import MiniSAUFNOJEPA
-from src.schema import FEATURES, TARGETS
+from src.surrogate import PhysicsNeMoFNO2D
 
-def stable_loss(pred, target):
-    # Targets: [Margin, Pwr, Trx, Tdsp, Life]
-    weights = torch.tensor([100.0, 1.0, 1.0, 1.0, 5.0]).to(pred.device)
-    loss = torch.mean(weights * (pred - target)**2)
-    return loss
-
-def train_model(data_path="data/samples_normalized.parquet", epochs=50):
-    print(f"🚀 Starting Spatial-Aware Training ({epochs} epochs)...")
+def train_spatial_model(epochs=50):
+    print(f"🚀 Starting 2D FNO Spatial Training ({epochs} epochs)...")
     
-    if not os.path.exists(data_path):
-        print("❌ Error: Training data missing.")
+    # Load Voxel Data
+    try:
+        x = torch.load("data/x_spatial.pt")
+        y = torch.load("data/y_spatial.pt")
+    except:
+        print("❌ Error: Spatial data missing. Run src/dummy_gen_normalized.py first.")
         return
 
-    df = pd.read_parquet(data_path)
-    X = torch.tensor(df[FEATURES].values).float()
-    y = torch.tensor(df[TARGETS].values).float()
-
-    model = MiniSAUFNOJEPA(in_dim=len(FEATURES), out_dim=len(TARGETS))
+    model = PhysicsNeMoFNO2D()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
+    criterion = nn.MSELoss()
 
     model.train()
     for epoch in range(epochs):
         optimizer.zero_grad()
-        output = model(X)
-        loss = stable_loss(output, y)
+        output = model(x)
+        loss = criterion(output, y)
         loss.backward()
         optimizer.step()
         
         if (epoch + 1) % 10 == 0 or epoch == 0:
-            print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}")
+            print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.6f}")
 
     os.makedirs("models", exist_ok=True)
-    torch.save(model.state_dict(), "models/surrogate_v1.pth")
-    print("✅ Training complete.")
+    torch.save(model.state_dict(), "models/spatial_fno_v1.pth")
+    print("✅ Training complete. 2D Surrogate saved.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument("--epochs", type=int, default=50)
     args = parser.parse_args()
-    train_model(epochs=args.epochs)
+    train_spatial_model(epochs=args.epochs)

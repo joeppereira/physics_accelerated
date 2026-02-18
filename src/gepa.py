@@ -2,77 +2,53 @@ import torch
 import numpy as np
 import json
 import os
-from src.surrogate import MiniSAUFNOJEPA
-from src.schema import FEATURES, TARGETS, NORM_FACTORS, unscale_output
+from src.bridge import OptimizerBridge
+from src.physics_engine import generate_spatial_layout
 
-class MultiKnobOptimizer:
-    def __init__(self, model_path="models/surrogate_v1.pth"):
-        self.model = MiniSAUFNOJEPA(in_dim=len(FEATURES), out_dim=len(TARGETS))
-        try:
-            self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
-            self.model.eval()
-        except:
-            print("⚠️ Warning: Model weights mismatch.")
+class SpatialOptimizer:
+    def __init__(self):
+        self.bridge = OptimizerBridge()
 
-    def optimize_spatial_layout(self, target_loss=-30.0):
-        print(f"🧬 Optimizing Spatial Layout (Dist, Area) for Loss={target_loss}dB...")
-        best_score = -1.0
-        golden_config = {}
-
-        for _ in range(5000):
-            # Candidate: Random Placement & Sizing
-            cand = {
-                "area_tx_um2": np.random.uniform(1000, 5000),
-                "area_rx_um2": np.random.uniform(1000, 5000),
-                "area_dsp_um2": np.random.uniform(5000, 20000),
-                "dist_tx_rx_um": np.random.uniform(10, 500), # The Spatial Knob
-                "bias_tx_ma": 30.0,
-                "bias_rx_ma": 15.0,
-                "dsp_freq_ghz": 3.0,
-                "thermal_k_sub": 100.0,
-                "thermal_k_pkg": 5.0,
-                "operating_hours": 87600.0, # EOL
-                "loss_db": target_loss,
-                "temp_amb": 25.0
-            }
-
-            # Scale
-            inp = []
-            for f in FEATURES:
-                inp.append(cand.get(f, 0) / NORM_FACTORS.get(f, 1.0))
-
-            with torch.no_grad():
-                preds = self.model(torch.tensor(inp).float().unsqueeze(0)).numpy()[0]
-            
-            # Unscale Targets
-            # preds: [margin, pwr, tj_rx, tj_dsp, lifetime]
-            margin = preds[0]
-            tj_rx = preds[2] * NORM_FACTORS["tj_rx_c"]
-            
-            # Score: Maximize Margin / Total Area (Efficiency)
-            total_area = cand["area_tx_um2"] + cand["area_rx_um2"] + cand["area_dsp_um2"]
-            score = margin * (30000.0 / total_area)
-            
-            if margin > 0.1 and score > best_score:
-                best_score = score
-                golden_config = {
-                    "dist_tx_rx": cand["dist_tx_rx_um"],
-                    "area_total": total_area,
-                    "eye_margin": margin,
-                    "tj_rx": tj_rx
-                }
+    def optimize_placement(self):
+        print(f"🧬 Optimizing Block Placement on 16x16 Grid...")
+        best_temp = 1000.0
+        best_dist = 0.0
         
-        return golden_config
+        # Sweep distance from 50um to 500um
+        for dist in np.linspace(50, 500, 20):
+            # Generate Layout Grid
+            # Fixed Areas/Powers for placement study
+            layout = generate_spatial_layout(3000, 3000, 10000, dist)
+            
+            # Create Power Grid (mW)
+            power_grid = np.zeros((16, 16))
+            p_dsp = 300.0
+            p_tx = 50.0
+            p_rx = 20.0
+            
+            power_grid[layout == 1] = p_dsp / (6*16)
+            power_grid[layout == 2] = p_tx / (3*3)
+            power_grid[layout == 3] = p_rx / (3*3)
+            
+            # AI Inference
+            temp_map = self.bridge.predict_heatmap(power_grid)
+            
+            # Metric: Peak RX Temp
+            # Mask RX locations
+            rx_temp = temp_map[layout == 3].mean()
+            
+            if rx_temp < best_temp:
+                best_temp = rx_temp
+                best_dist = dist
+                
+        return best_dist, best_temp
 
 if __name__ == "__main__":
-    opt = MultiKnobOptimizer()
-    config = opt.optimize_spatial_layout()
+    opt = SpatialOptimizer()
+    dist, temp = opt.optimize_placement()
     print("\n" + "="*50)
-    print(f"🏆 SPATIAL GOLDEN CONFIG")
+    print(f"🏆 SPATIAL AI OPTIMIZATION RESULT")
     print("="*50)
-    print(f"Optimal TX-RX Dist: {config.get('dist_tx_rx', 0):.1f} um")
-    print(f"Total Area        : {config.get('area_total', 0):.0f} um^2")
-    print("-" * 30)
-    print(f"Predicted Margin  : {config.get('eye_margin', 0):.3f} UI")
-    print(f"RX Temperature    : {config.get('tj_rx', 0):.1f} °C")
+    print(f"Optimal TX-RX Spacing: {dist:.1f} um")
+    print(f"Resulting RX Temp    : {temp:.1f} °C")
     print("="*50)
