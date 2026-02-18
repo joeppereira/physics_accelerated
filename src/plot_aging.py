@@ -13,65 +13,70 @@ def plot_aging_curves(model_path="models/surrogate_v1.pth"):
     try:
         model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     except:
-        print("❌ Model not found. Run training first.")
+        print("❌ Model not found.")
         return
     model.eval()
 
     # Time sweep: 0 to 10 years
     hours = np.linspace(0, 87600, 50)
     
-    # Scenario 1: Hot Chip (Small Area, Low Conductivity)
-    hot_results = []
-    for h in hours:
-        # Inputs must be normalized!
-        inp = [
-            -0.05, -0.02, 
-            5000 / NORM_FACTORS["area_um2"],   # Small Area
-            10 / NORM_FACTORS["bias_current_ma"], 
-            0.1 / NORM_FACTORS["thermal_k"],   # Poor K
-            h / NORM_FACTORS["operating_hours"],
-            -30 / NORM_FACTORS["loss_db"], 
-            25 / NORM_FACTORS["temp_amb"]
-        ]
+    # Scenario: Standard Chip (10000 um2, 10mA, K=0.3)
+    # Normalized Inputs
+    base_inp = [
+        -0.05, -0.02, 
+        10000 / NORM_FACTORS["area_um2"],
+        10 / NORM_FACTORS["bias_current_ma"], 
+        0.3 / NORM_FACTORS["thermal_k"],
+        0.0, # Placeholder for hours
+        -30 / NORM_FACTORS["loss_db"], 
+        25 / NORM_FACTORS["temp_amb"]
+    ]
+    
+    results = []
+    years = hours / 8760.0
+    
+    report_lines = ["# 10-Year Margin Decay Report", "", "| Year | Margin (UI) | Loss vs Day 0 |", "|---|---|---|"]
+    
+    for i, h in enumerate(hours):
+        inp = base_inp.copy()
+        inp[5] = h / NORM_FACTORS["operating_hours"] # Index 5 is op_hours in schema features?
+        # Check schema order:
+        # FEATURES = ["ffe_m1", "ffe_p1", "area_um2", "bias_current_ma", "thermal_k", "operating_hours", "loss_db", "temp_amb"]
+        # Index 0: m1, 1: p1, 2: area, 3: bias, 4: k, 5: HOURS
+        
         with torch.no_grad():
             pred = model(torch.tensor(inp).float().unsqueeze(0)).numpy()[0]
-        # Unscale output
+        
         width, height, pwr, tj, life = unscale_output(pred)
-        hot_results.append(width)
-
-    # Scenario 2: Cool Chip (Large Area, High Conductivity)
-    cool_results = []
-    for h in hours:
-        inp = [
-            -0.05, -0.02, 
-            15000 / NORM_FACTORS["area_um2"],  # Large Area
-            10 / NORM_FACTORS["bias_current_ma"], 
-            0.5 / NORM_FACTORS["thermal_k"],   # Good K
-            h / NORM_FACTORS["operating_hours"],
-            -30 / NORM_FACTORS["loss_db"], 
-            25 / NORM_FACTORS["temp_amb"]
-        ]
-        with torch.no_grad():
-            pred = model(torch.tensor(inp).float().unsqueeze(0)).numpy()[0]
-        width, height, pwr, tj, life = unscale_output(pred)
-        cool_results.append(width)
+        results.append(width)
+        
+        # Capture Year 0, 5, 10 for report
+        if i == 0: day0_margin = width
+        
+        if abs(h - 0) < 100 or abs(h - 43800) < 1000 or abs(h - 87600) < 1000:
+            loss_pct = ((day0_margin - width) / day0_margin) * 100
+            report_lines.append(f"| {h/8760:.1f} | {width:.4f} UI | -{loss_pct:.1f}% |")
 
     # Plot
     plt.figure(figsize=(10, 6))
-    plt.plot(hours/8760, hot_results, 'r-', label='Hot Chip (Small Area, Low K)')
-    plt.plot(hours/8760, cool_results, 'b-', label='Cool Chip (Large Area, High K)')
+    plt.plot(years, results, 'r-', linewidth=2, label='Standard Chip (10000um^2, 10mA)')
     plt.axhline(y=0.48, color='k', linestyle='--', label='Spec Limit (0.48 UI)')
     
     plt.xlabel("Operation Time (Years)")
     plt.ylabel("Eye Width Margin (UI)")
-    plt.title("SerDes Aging: The Impact of Thermal Management")
+    plt.title("SerDes Aging: Margin Decay over 10 Years")
     plt.legend()
     plt.grid(True, alpha=0.3)
     
-    output = "plots/aging_degradation.png"
     os.makedirs("plots", exist_ok=True)
-    plt.savefig(output)
-    print(f"✅ Aging plot saved to {output}")
+    plt.savefig("plots/aging_degradation.png")
+    
+    os.makedirs("reports", exist_ok=True)
+    with open("reports/margin_decay_report.md", "w") as f:
+        f.write("\n".join(report_lines))
+        
+    print("✅ Aging plot saved to plots/aging_degradation.png")
+    print("✅ Report saved to reports/margin_decay_report.md")
 
 if __name__ == "__main__":
     plot_aging_curves()
