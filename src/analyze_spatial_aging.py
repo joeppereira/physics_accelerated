@@ -14,9 +14,10 @@ def calculate_margin(t_rx, bias_rx, hours, loss=-30.0):
     noise = (t_rx - 25.0) * 0.001
     
     # 3. Aging (NBTI)
-    # Arrhenius acceleration
-    aging_factor = (hours / 87600.0) * np.exp(-1000.0 / (t_rx + 273.15))
-    aging_loss = 0.1 * aging_factor
+    # Arrhenius acceleration (Stronger K=3000)
+    aging_factor = (hours / 87600.0) * np.exp(-3000.0 / (t_rx + 273.15))
+    # Penalty magnitude boosted to 0.5 UI max
+    aging_loss = 0.5 * aging_factor
     
     margin = base_eye - noise - aging_loss
     return max(0.0, margin)
