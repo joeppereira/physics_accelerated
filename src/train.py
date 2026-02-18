@@ -8,12 +8,19 @@ from src.surrogate import PhysicsNeMoFNO2D
 def train_spatial_model(epochs=50):
     print(f"🚀 Starting 2D FNO Spatial Training ({epochs} epochs)...")
     
-    # Load Voxel Data from External Physics Factory
-    try:
+    # Load Voxel Data
+    if os.path.exists("../serdes_architect/data/x_3d.pt"):
+        print("   -> Loading External Data (SerDes Architect)")
         x = torch.load("../serdes_architect/data/x_3d.pt")
         y = torch.load("../serdes_architect/data/y_3d.pt")
-    except:
-        print("❌ Error: External 3D data missing. Run src/data_gen.py in serdes_architect.")
+    else:
+        print("   -> Loading Local Data (Dummy Gen)")
+        try:
+            x = torch.load("data/x_3d.pt")
+            y = torch.load("data/y_3d.pt")
+        except:
+            print("❌ Error: No 3D data found.")
+            return
         return
 
     model = PhysicsNeMoFNO2D()

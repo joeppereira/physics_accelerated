@@ -2,51 +2,64 @@ import pandas as pd
 import numpy as np
 import torch
 import os
-from src.physics_engine import ThermalSolver2D, generate_spatial_layout
+from src.physics_engine import VoxelThermalSolver3D, generate_spatial_layout
+from src.schema import scale_data
 
-def generate_spatial_dataset(samples=5000):
-    """
-    Generates 2D Spatial datasets (Power Grids -> Temp Grids).
-    This matches the NVIDIA Modulus data format.
-    """
-    print(f"🏭 Generating {samples} Spatial PDE solutions (16x16 Grid)...")
-    size = 16
-    solver = ThermalSolver2D(size=size)
+def generate_3d_dataset(samples=1000):
+    print(f"🏭 Generating {samples} 3D Voxel samples (Local)...")
+    solver = VoxelThermalSolver3D(layers=5)
     
-    x_data = [] # Power Maps
-    y_data = [] # Temp Maps
+    x_data = [] 
+    y_data = [] 
+    
+    k_stack = [150.0, 400.0, 60.0, 10.0, 0.5]
     
     for i in range(samples):
-        # Randomize Parameters
-        p_dsp = np.random.uniform(100, 500)
-        p_tx = np.random.uniform(20, 100)
-        p_rx = np.random.uniform(10, 50)
-        dist = np.random.uniform(50, 400)
-        k_pkg = np.random.uniform(1, 10)
-        k_sub = 150.0
+        # 1. Initialize Volume
+        p_vol = np.zeros((5, 16, 16))
         
-        # Create Power Grid
-        layout = generate_spatial_layout(3000, 3000, 10000, dist)
-        power_grid = np.zeros((size, size))
-        power_grid[layout == 1] = p_dsp / (6*16) # Spread power over blocks
-        power_grid[layout == 2] = p_tx / (3*3)
-        power_grid[layout == 3] = p_rx / (3*3)
+        # 2. Layout (Layer 0)
+        # Variable geometry
+        a_tx = np.random.uniform(1000, 5000)
+        a_rx = np.random.uniform(1000, 5000)
+        a_dsp = np.random.uniform(5000, 20000)
+        dist = np.random.uniform(10, 500)
         
-        # Solve PDE
-        temp_grid = solver.solve(power_grid, k_sub, k_pkg)
+        layout = generate_spatial_layout(a_tx, a_rx, a_dsp, dist)
         
-        # Normalize for AI [0, 1]
-        x_data.append(power_grid / 5.0) # Scale Power
-        y_data.append(temp_grid / 125.0) # Scale Temp
+        # Powers
+        p_dsp = np.random.uniform(50, 200)
+        p_tx = np.random.uniform(50, 150)
+        p_rx = np.random.uniform(20, 50)
         
-        if (i+1) % 1000 == 0:
-            print(f"   ... {i+1} samples solved.")
+        # Map Layout to Power Volume
+        # DSP (ID 1)
+        mask_dsp = (layout == 1)
+        if mask_dsp.any(): p_vol[0][mask_dsp] = p_dsp / mask_dsp.sum()
+            
+        # TX (ID 2)
+        mask_tx = (layout == 2)
+        if mask_tx.any(): p_vol[0][mask_tx] = p_tx / mask_tx.sum()
+            
+        # RX (ID 3)
+        mask_rx = (layout == 3)
+        if mask_rx.any(): p_vol[0][mask_rx] = p_rx / mask_rx.sum()
+        
+        # 3. Solve
+        t_vol = solver.solve(p_vol, k_stack)
+        
+        # 4. Store (Normalized)
+        x_data.append(p_vol / 50.0)
+        y_data.append(t_vol / 125.0)
+        
+        if (i+1) % 200 == 0:
+            print(f"   ... {i+1} samples.")
 
-    # Save as Tensor for fast training
     os.makedirs("data", exist_ok=True)
-    torch.save(torch.tensor(np.array(x_data)).float().unsqueeze(-1), "data/x_spatial.pt")
-    torch.save(torch.tensor(np.array(y_data)).float().unsqueeze(-1), "data/y_spatial.pt")
-    print("✅ Spatial Voxel dataset saved to data/x_spatial.pt and y_spatial.pt")
+    # Save as (Batch, Channels, H, W)
+    torch.save(torch.tensor(np.array(x_data)).float(), "data/x_3d.pt")
+    torch.save(torch.tensor(np.array(y_data)).float(), "data/y_3d.pt")
+    print("✅ Local 3D Voxel Data ready.")
 
 if __name__ == "__main__":
-    generate_spatial_dataset()
+    generate_3d_dataset()
