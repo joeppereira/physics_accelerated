@@ -8,12 +8,12 @@ from src.surrogate import PhysicsNeMoFNO2D
 def train_spatial_model(epochs=50):
     print(f"🚀 Starting 2D FNO Spatial Training ({epochs} epochs)...")
     
-    # Load Voxel Data
+    # Load Voxel Data from External Physics Factory
     try:
-        x = torch.load("data/x_spatial.pt")
-        y = torch.load("data/y_spatial.pt")
+        x = torch.load("../serdes_architect/data/x_spatial.pt")
+        y = torch.load("../serdes_architect/data/y_spatial.pt")
     except:
-        print("❌ Error: Spatial data missing. Run src/dummy_gen_normalized.py first.")
+        print("❌ Error: External Spatial data missing. Run src/data_gen.py in serdes_architect.")
         return
 
     model = PhysicsNeMoFNO2D()
