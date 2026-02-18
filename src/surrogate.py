@@ -43,21 +43,22 @@ class PhysicsNeMoFNO2D(nn.Module):
     def __init__(self, modes=8, width=32):
         super().__init__()
         self.width = width
-        # Lifting Layer
-        self.fc0 = nn.Linear(1, self.width) # 1 input channel (Power Grid)
+        # Lifting Layer (5 Channels for 5 Layers)
+        self.fc0 = nn.Linear(5, self.width) 
 
         # Spectral Layers
         self.conv0 = SpectralConv2d(self.width, self.width, modes, modes)
         self.conv1 = SpectralConv2d(self.width, self.width, modes, modes)
-        self.w0 = nn.Conv2d(self.width, self.width, 1) # Skip connection
+        self.w0 = nn.Conv2d(self.width, self.width, 1) 
         self.w1 = nn.Conv2d(self.width, self.width, 1)
 
         # Projection Layers
         self.fc1 = nn.Linear(self.width, 128)
-        self.fc2 = nn.Linear(128, 1) # 1 output channel (Temp Map)
+        self.fc2 = nn.Linear(128, 5) # 5 Output Channels (Temp per Layer)
 
     def forward(self, x):
-        # x shape: (batch, 16, 16, 1)
+        # x shape: (batch, 5, 16, 16) -> Permute to (batch, 16, 16, 5)
+        x = x.permute(0, 2, 3, 1)
         x = self.fc0(x)
         x = x.permute(0, 3, 1, 2) # (batch, width, 16, 16)
 
@@ -72,4 +73,6 @@ class PhysicsNeMoFNO2D(nn.Module):
         x = x.permute(0, 2, 3, 1) # (batch, 16, 16, width)
         x = F.gelu(self.fc1(x))
         x = self.fc2(x)
-        return x # (batch, 16, 16, 1)
+        
+        # Return to (batch, 5, 16, 16)
+        return x.permute(0, 3, 1, 2)

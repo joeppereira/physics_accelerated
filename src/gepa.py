@@ -31,11 +31,10 @@ class SpatialOptimizer:
             power_grid[layout == 3] = p_rx / (3*3)
             
             # AI Inference
-            temp_map = self.bridge.predict_heatmap(power_grid)
+            temp_vol = self.bridge.predict_thermal_volume(power_grid)
             
-            # Metric: Peak RX Temp
-            # Mask RX locations
-            rx_temp = temp_map[layout == 3].mean()
+            # Metric: Peak RX Temp on Die Layer (Index 0)
+            rx_temp = temp_vol[0][layout == 3].mean()
             
             if rx_temp < best_temp:
                 best_temp = rx_temp

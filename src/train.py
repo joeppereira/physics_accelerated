@@ -10,10 +10,10 @@ def train_spatial_model(epochs=50):
     
     # Load Voxel Data from External Physics Factory
     try:
-        x = torch.load("../serdes_architect/data/x_spatial.pt")
-        y = torch.load("../serdes_architect/data/y_spatial.pt")
+        x = torch.load("../serdes_architect/data/x_3d.pt")
+        y = torch.load("../serdes_architect/data/y_3d.pt")
     except:
-        print("❌ Error: External Spatial data missing. Run src/data_gen.py in serdes_architect.")
+        print("❌ Error: External 3D data missing. Run src/data_gen.py in serdes_architect.")
         return
 
     model = PhysicsNeMoFNO2D()
