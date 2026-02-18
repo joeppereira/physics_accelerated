@@ -1,0 +1,9 @@
+🧠 Spatial Optimizer: 2D FNO Weights loaded successfully.
+🧬 Optimizing Block Placement on 16x16 Grid...
+
+==================================================
+🏆 SPATIAL AI OPTIMIZATION RESULT
+==================================================
+Optimal TX-RX Spacing: 357.9 um
+Resulting RX Temp    : 81.1 °C
+==================================================

@@ -1,33 +1,33 @@
 #!/bin/bash
-# 128G SerDes Design Cycle: Physics-to-Cognitive (Local Orchestration)
+# 128G SerDes "Physics-NeMo" Design Cycle (Spatial 2D)
 
-# Ensure output directory exists
-mkdir -p reports plots
+# Ensure output directories exist
+mkdir -p reports plots data models
 
-# [1/4] HANDSHAKE: Generate Data
-# The Physics Core acts as the "Sensor," producing grounded truth data.
-# This script mixes nominal cases with "Thermal Runaway" and "Voltage Droop" failure cliffs.
-echo "🚀 [1/4] Starting Physics Core: Generating 3nm Ground Truth..."
+echo "🚀 [1/5] Starting Spatial Physics Core: Solving 2D Heat Equations..."
+# Generates data/x_spatial.pt and y_spatial.pt using FDM Solver
 export PYTHONPATH=$PYTHONPATH:.
-./venv/bin/python3 src/dummy_gen.py
+./venv/bin/python3 src/dummy_gen_normalized.py
 
-# [2/4] HANDSHAKE: Sync Parquet & Train FNO
-# The Cognitive Optimizer acts as the "Brain," consuming the sensor data.
-# It uses Physics-Informed Loss (PIL) to learn the 35mV DFE penalty.
-echo "🧠 [2/4] Starting Cognitive Optimizer: Training FNO Surrogate..."
+echo "🧠 [2/5] Training 2D Fourier Neural Operator (Physics-NeMo Surrogate)..."
 ./venv/bin/python3 src/train.py --epochs 50
 
-# [3/4] HANDSHAKE: Evolve Config
-# Using GEPA (Genetic Evolutionary Physics Accelerator) to find the Golden Configuration.
-# Target Loss: -36.0 dB Channel (Simulating a long-reach backplane).
-echo "🧬 [3/4] Running GEPA Evolution: Finding Optimal Config..."
-./venv/bin/python3 src/gepa.py --target_loss -36.0 > reports/gepa_results.txt
+echo "🧬 [3/5] Running Spatial Placement Optimization..."
+# Optimizes TX-RX distance to minimize thermal crosstalk
+./venv/bin/python3 src/gepa.py > reports/spatial_optimization_results.txt
 
-# [4/4] HANDSHAKE: Sign-off
-# Generates the architectural verdict, comparing AI predictions against physics rules.
-echo "📊 [4/4] Generating Architectural Yield Reports..."
-./venv/bin/python3 src/stats_plotter.py
-./venv/bin/python3 src/tradeoff_plotter.py
+echo "📊 [4/5] Executing Multi-Physics Analysis Suite..."
+# Runs the specialized trade-off studies
+./venv/bin/python3 src/analyze_spatial_aging.py
+./venv/bin/python3 src/analyze_isolation.py
+./venv/bin/python3 src/analyze_package_tradeoff.py
+./venv/bin/python3 src/analyze_neighbor_impact.py
+./venv/bin/python3 src/tradeoff_plotter.py # Heatmap viz
+
+echo "📋 [5/5] Finalizing Sign-off Report..."
 ./venv/bin/python3 src/signoff_reporter.py
 
-echo "✅ Full Cycle Complete. See reports/signoff_report.md for Sign-off."
+echo "✅ Full Spatial Cycle Complete."
+echo "   - View Heatmap: plots/spatial_heatmap.png"
+echo "   - View Aging Plot: plots/spatial_aging_tradeoff.png"
+echo "   - Read Verdict: reports/signoff_report.md"

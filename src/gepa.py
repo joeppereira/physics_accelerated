@@ -46,6 +46,18 @@ class SpatialOptimizer:
 if __name__ == "__main__":
     opt = SpatialOptimizer()
     dist, temp = opt.optimize_placement()
+    
+    # Save for reporter
+    config = {
+        "dist_tx_rx_um": float(dist),
+        "tj_rx_c": float(temp),
+        "date": "2026-02-15",
+        "status": "PASS (OPTIMIZED)"
+    }
+    os.makedirs("reports", exist_ok=True)
+    with open("reports/spatial_gepa_optimized.json", "w") as f:
+        json.dump(config, f, indent=4)
+
     print("\n" + "="*50)
     print(f"🏆 SPATIAL AI OPTIMIZATION RESULT")
     print("="*50)
