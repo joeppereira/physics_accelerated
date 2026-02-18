@@ -1,92 +1,61 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import os
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from src.surrogate import MiniSAUFNOJEPA
-from src.schema import FEATURES, TARGETS, NORM_FACTORS, unscale_output
+from src.schema import FEATURES, TARGETS, NORM_FACTORS
 
-def generate_sweep_data(output_path="simulated_result/sweep_analysis.csv"):
-    print("📊 Generating 3D Trade-off Sweep Data (Aging Aware)...")
+def plot_spatial_tradeoff():
+    print("📉 Plotting Spatial Thermal Crosstalk...")
     
     model = MiniSAUFNOJEPA(in_dim=len(FEATURES), out_dim=len(TARGETS))
     try:
         model.load_state_dict(torch.load("models/surrogate_v1.pth", map_location=torch.device('cpu')))
+        model.eval()
     except:
-        print("❌ Error: Model not trained.")
         return
 
-    model.eval()
+    # Sweep Distance
+    dists = np.linspace(10, 500, 50)
+    margins = []
+    temps = []
     
-    bias_range = np.linspace(2, 15, 30) 
-    area_range = np.linspace(5000, 15000, 30)
-    
-    results = []
-    
-    for bias in bias_range:
-        for area in area_range:
-            raw_input = {
-                "ffe_m1": -0.05,
-                "ffe_p1": -0.02,
-                "area_um2": area,
-                "bias_current_ma": bias,
-                "rx_impedance_ohm": 100.0,
-                "loss_db": -30.0,
-                "temp_amb": 25.0
-            }
+    for d in dists:
+        cand = {
+            "area_tx_um2": 3000, "area_rx_um2": 3000, "area_dsp_um2": 10000,
+            "dist_tx_rx_um": d,
+            "bias_tx_ma": 30.0, "bias_rx_ma": 15.0, "dsp_freq_ghz": 3.0,
+            "thermal_k_sub": 100.0, "thermal_k_pkg": 5.0,
+            "operating_hours": 87600.0,
+            "loss_db": -30.0, "temp_amb": 25.0
+        }
+        
+        inp = [cand[f] / NORM_FACTORS.get(f, 1.0) for f in FEATURES]
+        with torch.no_grad():
+            preds = model(torch.tensor(inp).float().unsqueeze(0)).numpy()[0]
             
-            scaled_input = [
-                raw_input["ffe_m1"],
-                raw_input["ffe_p1"],
-                raw_input["area_um2"] / NORM_FACTORS["area_um2"],
-                raw_input["bias_current_ma"] / NORM_FACTORS["bias_current_ma"],
-                raw_input["rx_impedance_ohm"] / NORM_FACTORS["rx_impedance_ohm"],
-                raw_input["loss_db"] / NORM_FACTORS["loss_db"],
-                raw_input["temp_amb"] / NORM_FACTORS["temp_amb"]
-            ]
-            
-            with torch.no_grad():
-                pred = model(torch.tensor(scaled_input).float().unsqueeze(0)).numpy()[0]
-            
-            # Unscale 5 outputs
-            width, height, pwr, tj, life = unscale_output(pred)
-            
-            results.append({
-                "bias_current_ma": bias,
-                "area_um2": area,
-                "eye_width_ui": width,
-                "tj_c": tj,
-                "lifetime_years": life
-            })
-            
-    df = pd.DataFrame(results)
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    df.to_csv(output_path, index=False)
-    print(f"✅ Sweep data saved to {output_path}")
+        margins.append(preds[0]) # Margin
+        temps.append(preds[2] * NORM_FACTORS["tj_rx_c"]) # Tj RX
 
-def plot_3d_tradeoff(data_path="simulated_result/sweep_analysis.csv"):
-    if not os.path.exists(data_path):
-        generate_sweep_data(data_path)
-
-    df = pd.read_csv(data_path)
-    fig = plt.figure(figsize=(12, 8))
-    ax = fig.add_subplot(111, projection='3d')
+    fig, ax1 = plt.subplots(figsize=(10, 6))
     
-    # Plot: X=Bias, Y=Area, Z=Margin, Color=Lifetime
-    img = ax.scatter(df['bias_current_ma'], df['area_um2'], df['eye_width_ui'], c=df['lifetime_years'], cmap='RdYlGn')
+    color = 'tab:red'
+    ax1.set_xlabel('TX-RX Spacing (um)')
+    ax1.set_ylabel('RX Temperature (°C)', color=color)
+    ax1.plot(dists, temps, color=color, linewidth=2)
+    ax1.tick_params(axis='y', labelcolor=color)
     
-    ax.set_xlabel('Bias Current (mA)')
-    ax.set_ylabel('Area (um2)')
-    ax.set_zlabel('UI Margin')
+    ax2 = ax1.twinx()
+    color = 'tab:blue'
+    ax2.set_ylabel('Eye Margin (UI)', color=color)
+    ax2.plot(dists, margins, color=color, linewidth=2, linestyle='--')
+    ax2.tick_params(axis='y', labelcolor=color)
     
-    cbar = fig.colorbar(img, label='Lifetime (Years)')
-    plt.title("3nm Architectural Trade-off: Reliability Surface")
-    
-    output_path = "plots/tradeoff_3d.png"
-    os.makedirs("plots", exist_ok=True)
-    plt.savefig(output_path)
-    print(f"📊 3D Trade-off Surface saved to {output_path}")
+    plt.title("Spatial Optimization: Thermal Crosstalk vs. Performance")
+    plt.grid(True, alpha=0.3)
+    plt.savefig("plots/spatial_tradeoff.png")
+    print("✅ Plot saved: plots/spatial_tradeoff.png")
 
 if __name__ == "__main__":
-    plot_3d_tradeoff()
+    plot_spatial_tradeoff()

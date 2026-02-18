@@ -8,28 +8,13 @@ from src.surrogate import MiniSAUFNOJEPA
 from src.schema import FEATURES, TARGETS
 
 def stable_loss(pred, target):
-    """
-    Weighted MSE Loss with Physics Constraints.
-    Targets: [Width, Height, Power, Tj, Lifetime]
-    Weights: [50.0, 1.0, 1.0, 1.0, 5.0]
-    """
-    # Dynamic weights based on target length
-    if pred.shape[1] == 5:
-        # Lifetime included
-        weights = torch.tensor([50.0, 1.0, 1.0, 1.0, 5.0]).to(pred.device)
-    else:
-        # Fallback for old model
-        weights = torch.tensor([50.0, 1.0, 1.0, 1.0]).to(pred.device)
-        
+    # Targets: [Margin, Pwr, Trx, Tdsp, Life]
+    weights = torch.tensor([100.0, 1.0, 1.0, 1.0, 5.0]).to(pred.device)
     loss = torch.mean(weights * (pred - target)**2)
-    
-    # Physics Constraint: Tj (index 3) cannot be below Ambient (0.2 normalized)
-    tj_violation = torch.relu(0.2 - pred[:, 3]).mean()
-    
-    return loss + (10.0 * tj_violation)
+    return loss
 
 def train_model(data_path="data/samples_normalized.parquet", epochs=50):
-    print(f"🚀 Starting Aging-Aware Training ({epochs} epochs)...")
+    print(f"🚀 Starting Spatial-Aware Training ({epochs} epochs)...")
     
     if not os.path.exists(data_path):
         print("❌ Error: Training data missing.")
@@ -51,15 +36,14 @@ def train_model(data_path="data/samples_normalized.parquet", epochs=50):
         optimizer.step()
         
         if (epoch + 1) % 10 == 0 or epoch == 0:
-            print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.6f}")
+            print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}")
 
     os.makedirs("models", exist_ok=True)
     torch.save(model.state_dict(), "models/surrogate_v1.pth")
-    print("✅ Training complete. Model saved to models/surrogate_v1.pth")
+    print("✅ Training complete.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=30)
     args = parser.parse_args()
-    
     train_model(epochs=args.epochs)

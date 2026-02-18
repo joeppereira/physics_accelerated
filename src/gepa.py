@@ -12,67 +12,67 @@ class MultiKnobOptimizer:
             self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
             self.model.eval()
         except:
-            print("⚠️ Warning: Model weights mismatch or not found.")
+            print("⚠️ Warning: Model weights mismatch.")
 
-    def find_golden_config(self, target_loss=-36.0, target_hours=87600.0):
-        print(f"🧬 Searching EOL Pareto Front (Years: {target_hours/8760: .1f}, Loss: {target_loss}dB)...")
-        best_ui = 0.0
+    def optimize_spatial_layout(self, target_loss=-30.0):
+        print(f"🧬 Optimizing Spatial Layout (Dist, Area) for Loss={target_loss}dB...")
+        best_score = -1.0
         golden_config = {}
 
         for _ in range(5000):
-            # Candidate Knobs
-            raw_cand = {
-                "ffe_m1": np.random.uniform(-0.12, 0),
-                "ffe_p1": np.random.uniform(-0.05, 0),
-                "area_um2": np.random.uniform(5000, 15000),
-                "bias_current_ma": np.random.uniform(2, 20),
-                "thermal_k": np.random.uniform(0.1, 0.5),
-                "operating_hours": target_hours, # Fix to EOL
+            # Candidate: Random Placement & Sizing
+            cand = {
+                "area_tx_um2": np.random.uniform(1000, 5000),
+                "area_rx_um2": np.random.uniform(1000, 5000),
+                "area_dsp_um2": np.random.uniform(5000, 20000),
+                "dist_tx_rx_um": np.random.uniform(10, 500), # The Spatial Knob
+                "bias_tx_ma": 30.0,
+                "bias_rx_ma": 15.0,
+                "dsp_freq_ghz": 3.0,
+                "thermal_k_sub": 100.0,
+                "thermal_k_pkg": 5.0,
+                "operating_hours": 87600.0, # EOL
                 "loss_db": target_loss,
                 "temp_amb": 25.0
             }
 
-            # Scale inputs
-            scaled_input = [
-                raw_cand["ffe_m1"],
-                raw_cand["ffe_p1"],
-                raw_cand["area_um2"] / NORM_FACTORS["area_um2"],
-                raw_cand["bias_current_ma"] / NORM_FACTORS["bias_current_ma"],
-                raw_cand["thermal_k"] / NORM_FACTORS["thermal_k"],
-                raw_cand["operating_hours"] / NORM_FACTORS["operating_hours"],
-                raw_cand["loss_db"] / NORM_FACTORS["loss_db"],
-                raw_cand["temp_amb"] / NORM_FACTORS["temp_amb"]
-            ]
+            # Scale
+            inp = []
+            for f in FEATURES:
+                inp.append(cand.get(f, 0) / NORM_FACTORS.get(f, 1.0))
 
             with torch.no_grad():
-                preds = self.model(torch.tensor(scaled_input).float().unsqueeze(0)).numpy()[0]
+                preds = self.model(torch.tensor(inp).float().unsqueeze(0)).numpy()[0]
             
-            # Unscale output
-            width_ui, height_mv, pwr_mw, tj_c, life = unscale_output(preds)
-
-            # Optimization Criteria: Best Margin at Year 10
-            if tj_c < 105.0 and width_ui > best_ui:
-                best_ui = width_ui
+            # Unscale Targets
+            # preds: [margin, pwr, tj_rx, tj_dsp, lifetime]
+            margin = preds[0]
+            tj_rx = preds[2] * NORM_FACTORS["tj_rx_c"]
+            
+            # Score: Maximize Margin / Total Area (Efficiency)
+            total_area = cand["area_tx_um2"] + cand["area_rx_um2"] + cand["area_dsp_um2"]
+            score = margin * (30000.0 / total_area)
+            
+            if margin > 0.1 and score > best_score:
+                best_score = score
                 golden_config = {
-                    "area_um2": raw_cand["area_um2"],
-                    "bias_ma": raw_cand["bias_current_ma"],
-                    "thermal_k": raw_cand["thermal_k"],
-                    "eye_width_ui_eol": float(width_ui),
-                    "tj_c": float(tj_c)
+                    "dist_tx_rx": cand["dist_tx_rx_um"],
+                    "area_total": total_area,
+                    "eye_margin": margin,
+                    "tj_rx": tj_rx
                 }
         
         return golden_config
 
 if __name__ == "__main__":
     opt = MultiKnobOptimizer()
-    config = opt.find_golden_config()
+    config = opt.optimize_spatial_layout()
     print("\n" + "="*50)
-    print(f"🏆 EOL GOLDEN CONFIGURATION (10 YEAR MARGIN)")
+    print(f"🏆 SPATIAL GOLDEN CONFIG")
     print("="*50)
-    print(f"Area Allocation   : {config.get('area_um2', 0):.1f} um^2")
-    print(f"Bias Current      : {config.get('bias_ma', 0):.2f} mA")
-    print(f"Material Thermal K: {config.get('thermal_k', 0):.3f}")
+    print(f"Optimal TX-RX Dist: {config.get('dist_tx_rx', 0):.1f} um")
+    print(f"Total Area        : {config.get('area_total', 0):.0f} um^2")
     print("-" * 30)
-    print(f"Predicted EOL Margin: {config.get('eye_width_ui_eol', 0):.3f} UI")
-    print(f"Junction Temp       : {config.get('tj_c', 0):.1f} °C")
+    print(f"Predicted Margin  : {config.get('eye_margin', 0):.3f} UI")
+    print(f"RX Temperature    : {config.get('tj_rx', 0):.1f} °C")
     print("="*50)
