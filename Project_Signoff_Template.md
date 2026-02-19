@@ -1,35 +1,34 @@
-# 128G SerDes Architectural Sign-off Report Template
+# 128G SerDes Architectural Sign-off: Spatial Audit
 
-**Project ID:** SERDES_128G_3NM_SIGN_OFF
+**Project ID:** [Project Name]
 **Date:** [YYYY-MM-DD]
-**Status:** [PASS/FAIL/CONDITIONAL]
+**Status:** [PASS / FAIL / CONDITIONAL]
 
-## I. Physical Distribution Audit
-*Analysis of heat generation sources at the Optimized Golden Configuration.*
+## I. Spatial Thermal Verdict
+*Analysis of the optimized layout using the 3D Physics-NeMo twin.*
 
-- **Interconnect (Metal) Dissipation:** [Value] mW
-  - *Source:* Calculated from ITF sheet resistance and 64GBaud current density.
-- **Active Switching (Poly) Dissipation:** [Value] mW
-  - *Source:* Liberty Dynamic Tables (52% Activity Factor).
-- **Static Leakage (Device):** [Value] mW
-  - *Source:* Base leakage at 25°C scaled to Tj.
-- **Total Power:** [Value] mW
+| Metric | Target | Result (Optimized) | Status |
+| :--- | :--- | :--- | :--- |
+| **Peak Die Temp** | < 105.0 °C | [Peak T] °C | [Pass/Fail] |
+| **TX-RX Isolation** | > 300.0 um | [Dist] um | [Pass/Fail] |
+| **EOL Margin (10y)** | > 0.10 UI | [Margin] UI | [Pass/Fail] |
 
-## II. The Thermal-Jitter Verdict
-- **Calculated Tj:** [Value] °C (Ambient + Thermal Delta)
-- **Horizontal Margin Tax:** [Value] UI
-  - *Formula:* (Tj - 25°C) × 0.001 UI/°C
-- **Final Horizontal Eye:** [Value] UI (Spec: > 0.48 UI) — **[PASS/FAIL]**
+## II. 3D Stackup Audit
+*Efficiency of the 5-layer thermal conduction path.*
 
-## III. PPA Performance Summary
-- **Vertical Margin:** [Value] mV (Spec: > 36.0 mV) — **[PASS/FAIL]**
-- **Energy Efficiency:** [Value] pJ/bit (Target: < 0.60 pJ/bit) — **[OPTIMAL/SUB-OPTIMAL]**
-- **Optimized TX-FFE Taps:** [ffe_m1, ffe_0, ffe_p1, ffe_p2]
+- **BEOL Effectiveness:** [K_eff] W/mK
+- **Package Heat Spreading:** [K_eff] W/mK
+- **Hotspot ROI Zoom:** Verified in `plots/user_design_thermal.png`.
+
+## III. Multi-Physics Performance
+- **Thermal Jitter Tax:** [Value] UI loss at Year 10.
+- **EMI Crosstalk Penalty:** [Value] UI loss based on block proximity.
+- **PPA Verdict:** [Value] pJ/bit energy efficiency at EOL.
 
 ---
-## IV. Final Verification Checklist
-1. **The Linearity Test:** Is the decay linear (0.01 UI / 10°C)? [Yes/No]
-2. **The DFE Guardrail Test:** Is DFE Tap-1 prediction within 35mV hard limits? [Yes/No]
-3. **The Cross-Check:** Does AI prediction match Golden Physics within ±2%? [Yes/No]
+## IV. Verification Checklist
+1. **[ ] Voxel Integrity:** Does the power density map match the physical netlist?
+2. **[ ] Corner Resilience:** Verified against FF/SS and Voltage stress?
+3. **[ ] Isolation Goal:** Are sensitive analog blocks separated from DSP aggressors?
 
-**Notes:** Status is CONDITIONAL pending final SI-simulation verification of Package-Die escape.
+**Notes:** Sign-off is valid for the specific .itf process and package stack defined in the design JSON.
