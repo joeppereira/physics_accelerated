@@ -2,10 +2,10 @@ import numpy as np
 from scipy.sparse import lil_matrix, linalg
 
 class VoxelThermalSolver3D:
-    def __init__(self, size=16, layers=5, pitch_um=50, z_pitch_um=20):
+    def __init__(self, size=64, layers=5, pitch_um=31.25, z_pitch_um=20):
         self.N = size
         self.L = layers
-        self.dx = pitch_um
+        self.dx = pitch_um # 2000um / 64 = 31.25um
         self.dz = z_pitch_um
         
     def solve(self, power_vol, k_vol):
@@ -86,16 +86,17 @@ class VoxelThermalSolver3D:
             return np.full((L, N, N), 25.0)
 
 def generate_spatial_layout(a_tx, a_rx, a_dsp, dist_um):
-    grid = np.zeros((16, 16))
-    pixel_area = 2500.0
+    N = 64
+    grid = np.zeros((N, N))
+    pixel_area = 31.25 * 31.25 # approx 976 um2
     
     def fill_block(start_r, start_c, area, id_val):
         num_pixels = int(area / pixel_area)
         if num_pixels < 1: num_pixels = 1
         count = 0
         r, c = start_r, start_c
-        while count < num_pixels and r < 16:
-            if c < 16:
+        while count < num_pixels and r < N:
+            if c < N:
                 grid[r, c] = id_val
                 count += 1
                 c += 1
@@ -103,9 +104,15 @@ def generate_spatial_layout(a_tx, a_rx, a_dsp, dist_um):
                 c = start_c
                 r += 1
                 
+    # Scale positions for 64 grid
+    # DSP top 25%
     fill_block(0, 0, a_dsp, 1)
-    fill_block(12, 2, a_tx, 2)
-    dist_nodes = int(dist_um / 50.0)
-    rx_col = min(12, 5 + dist_nodes)
-    fill_block(12, rx_col, a_rx, 3)
+    
+    # TX Bottom Left (Row 48, Col 8)
+    fill_block(48, 8, a_tx, 2)
+    
+    # RX Bottom Right
+    dist_nodes = int(dist_um / 31.25)
+    rx_col = min(48, 20 + dist_nodes)
+    fill_block(48, rx_col, a_rx, 3)
     return grid
