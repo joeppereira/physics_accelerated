@@ -1,5 +1,5 @@
 {
-  "design_name": "SerDes_SoC_v1",
+  "design_name": "SerDes_SoC_v2_Detailed",
   "die_width_um": 2000,
   "die_height_um": 2000,
   "blocks": [
@@ -8,5 +8,17 @@
     {"name": "RX_Lane0", "x": 600, "y": 1000, "w": 200, "h": 200, "power_mw": 80},
     {"name": "TX_Lane1", "x": 1000, "y": 1000, "w": 200, "h": 200, "power_mw": 150},
     {"name": "RX_Lane1", "x": 1400, "y": 1000, "w": 200, "h": 200, "power_mw": 80}
+  ],
+  "stackup": [
+    {"name": "Active Silicon", "type": "die", "thickness": 50, "k": 150},
+    {"name": "M1_Local", "type": "metal", "thickness": 0.1, "k": 200},
+    {"name": "M2_Local", "type": "metal", "thickness": 0.1, "k": 200},
+    {"name": "M3_Global", "type": "metal", "thickness": 0.5, "k": 400},
+    {"name": "M4_Global", "type": "metal", "thickness": 0.5, "k": 400},
+    {"name": "M5_Power", "type": "metal", "thickness": 2.0, "k": 400},
+    {"name": "C4_Bumps", "type": "bump", "thickness": 50, "k": 60},
+    {"name": "Substrate_Core", "type": "pkg", "thickness": 500, "k": 20},
+    {"name": "Substrate_BuildUp", "type": "pkg", "thickness": 100, "k": 5},
+    {"name": "PCB_Interface", "type": "board", "thickness": 1000, "k": 0.5}
   ]
 }
