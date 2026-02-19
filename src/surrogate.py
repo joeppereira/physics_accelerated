@@ -43,8 +43,8 @@ class PhysicsNeMoFNO2D(nn.Module):
     def __init__(self, modes=8, width=32):
         super().__init__()
         self.width = width
-        # Lifting Layer (5 Channels for 5 Layers)
-        self.fc0 = nn.Linear(5, self.width) 
+        # Lifting Layer (10 Channels: 5 Power + 5 Material K)
+        self.fc0 = nn.Linear(10, self.width) 
 
         # Spectral Layers
         self.conv0 = SpectralConv2d(self.width, self.width, modes, modes)

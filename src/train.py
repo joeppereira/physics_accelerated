@@ -9,7 +9,11 @@ def train_spatial_model(epochs=50):
     print(f"🚀 Starting 2D FNO Spatial Training ({epochs} epochs)...")
     
     # Load Voxel Data
-    if os.path.exists("../serdes_architect/data/x_3d.pt"):
+    if os.path.exists("data/x_parametric.pt"):
+        print("   -> Loading Parametric Data (Material-Aware)")
+        x = torch.load("data/x_parametric.pt")
+        y = torch.load("data/y_parametric.pt")
+    elif os.path.exists("../serdes_architect/data/x_3d.pt"):
         print("   -> Loading External Data (SerDes Architect)")
         x = torch.load("../serdes_architect/data/x_3d.pt")
         y = torch.load("../serdes_architect/data/y_3d.pt")
