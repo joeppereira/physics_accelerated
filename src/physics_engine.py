@@ -25,7 +25,14 @@ class VoxelThermalSolver3D:
         def idx(l, r, c): return (l * N * N) + (r * N) + c
         
         # Flattened K array for fast access
-        K = k_vol * k_conv
+        if isinstance(k_vol, list):
+            # Broadcast list to (L, N, N)
+            k_arr = np.zeros((L, N, N))
+            for l in range(L):
+                k_arr[l, :, :] = k_vol[l]
+            K = k_arr * k_conv
+        else:
+            K = k_vol * k_conv
         
         for l in range(L):
             for r in range(N):
