@@ -9,119 +9,74 @@ class DesignLoader:
         self.tech_loader = TechLoader()
         
     def collapse_stack(self, raw_stack):
-        """
-        Compresses an N-layer physical stack into the 5-Layer Canonical Model.
-        Canonical Layers: [Die, BEOL, Interconnect, Package, Board]
-        Uses Series Thermal Resistance rule: K_eff = Sum(t) / Sum(t/k)
-        """
-        if not raw_stack:
-            # Default 3nm Stack
-            return [150.0, 400.0, 60.0, 10.0, 0.5]
-            
-        # Buckets for the 5 canonical layers
-        # Mapping strategy:
-        # 0 -> Die (Silicon)
-        # 1 -> BEOL (Metals M1-Mx)
-        # 2 -> C4/Bumps (Underfill)
-        # 3 -> Package (Substrate)
-        # 4 -> Board (PCB/TIM)
-        
+        """Compresses N-layer stack into 5 Canonical Layers using Thermal Resistance Rule."""
+        if not raw_stack: return [150.0, 400.0, 60.0, 10.0, 0.5]
         buckets = [[], [], [], [], []]
-        
         for layer in raw_stack:
-            # User must tag layer type, or we infer by order?
-            # Let's assume user tags: "type": "die" | "metal" | "bump" | "pkg" | "board"
             l_type = layer.get("type", "pkg")
-            idx = 3 # Default to package
-            
+            idx = 3 # Default pkg
             if l_type == "die": idx = 0
             elif l_type == "metal": idx = 1
             elif l_type == "bump": idx = 2
             elif l_type == "pkg": idx = 3
             elif l_type == "board": idx = 4
-            
             buckets[idx].append(layer)
-            
         k_canonical = []
-        
         for i in range(5):
             layers = buckets[i]
             if not layers:
-                # Fallback defaults if missing
-                defaults = [150.0, 200.0, 50.0, 5.0, 0.5]
-                k_canonical.append(defaults[i])
+                k_canonical.append([150.0, 200.0, 50.0, 5.0, 0.5][i])
                 continue
-                
-            # Calculate Effective Vertical K
-            # R_total = Sum(R_i) = Sum(t_i / k_i)
-            # K_eff = T_total / R_total
             t_total = sum([l["thickness"] for l in layers])
             r_total = sum([l["thickness"] / l["k"] for l in layers])
-            
-            k_eff = t_total / r_total
-            k_canonical.append(k_eff)
-            
-        print(f"🧱 Stack Collapsed: {len(raw_stack)} Layers -> 5 Canonical Layers")
-        print(f"   K_eff: {k_canonical}")
+            k_canonical.append(t_total / r_total)
         return k_canonical
 
-    def load_from_json(self, json_path, roi_bounds=None):
-        if not os.path.exists(json_path):
-            raise FileNotFoundError(f"Design file {json_path} not found.")
+    def _rasterize_recursive(self, blocks, power_grid, xmin, ymin, dx, dy, parent_x=0, parent_y=0):
+        """Recursively parses blocks and sub-blocks into the grid."""
+        for block in blocks:
+            # Absolute coordinates
+            abs_x = parent_x + block["x"]
+            abs_y = parent_y + block["y"]
+            w, h = block["w"], block["h"]
+            p = block.get("power_mw", 0)
+
+            # Process Sub-blocks if they exist
+            if "sub_blocks" in block:
+                self._rasterize_recursive(block["sub_blocks"], power_grid, xmin, ymin, dx, dy, abs_x, abs_y)
             
+            # Rasterize current block power
+            if p > 0:
+                rel_x, rel_y = max(0, abs_x - xmin), max(0, abs_y - ymin)
+                col_start, row_start = int(rel_x / dx), int(rel_y / dy)
+                col_end = int(min(self.N * dx, (abs_x + w - xmin)) / dx)
+                row_end = int(min(self.N * dy, (abs_y + h - ymin)) / dy)
+                
+                # Bounds check
+                if col_start >= self.N or row_start >= self.N or col_end < 0 or row_end < 0: continue
+                
+                col_start, row_start = max(0, col_start), max(0, row_start)
+                col_end, row_end = min(self.N, col_end + 1), min(self.N, row_end + 1)
+                
+                num_voxels = (col_end - col_start) * (row_end - row_start)
+                if num_voxels > 0:
+                    power_grid[row_start:row_end, col_start:col_end] += p / num_voxels
+
+    def load_from_json(self, json_path, roi_bounds=None):
         with open(json_path, 'r') as f:
             design = json.load(f)
-            
-        # 1. Load Stackup (Tech File priority)
+        
         if "tech_file" in design:
-            print(f"🔄 Overriding stackup with Tech File: {design['tech_file']}")
             raw_stack = self.tech_loader.load_itf(design["tech_file"])
         else:
             raw_stack = design.get("stackup", [])
-            
         k_layers = self.collapse_stack(raw_stack)
-            
-        # 2. Determine Viewport
-        if roi_bounds:
-            xmin, ymin, xmax, ymax = roi_bounds
-        else:
-            xmin, ymin = 0, 0
-            xmax, ymax = design.get("die_width_um", 1000), design.get("die_height_um", 1000)
-            
-        width = xmax - xmin
-        height = ymax - ymin
-        dx = width / self.N
-        dy = height / self.N
+
+        xmin, ymin = (roi_bounds[0], roi_bounds[1]) if roi_bounds else (0, 0)
+        xmax, ymax = (roi_bounds[2], roi_bounds[3]) if roi_bounds else (design.get("die_width_um", 1000), design.get("die_height_um", 1000))
         
-        # 3. Rasterize
+        dx, dy = (xmax - xmin) / self.N, (ymax - ymin) / self.N
         power_grid = np.zeros((self.N, self.N))
         
-        for block in design["blocks"]:
-            b_x, b_y, b_w, b_h = block["x"], block["y"], block["w"], block["h"]
-            b_p = block["power_mw"]
-            
-            if (b_x + b_w < xmin) or (b_x > xmax) or (b_y + b_h < ymin) or (b_y > ymax):
-                continue 
-                
-            rel_x = max(0, b_x - xmin)
-            rel_y = max(0, b_y - ymin)
-            
-            col_start = int(rel_x / dx)
-            row_start = int(rel_y / dy)
-            col_end = int(min(width, (b_x + b_w - xmin)) / dx)
-            row_end = int(min(height, (b_y + b_h - ymin)) / dy)
-            
-            col_start = max(0, min(self.N-1, col_start))
-            row_start = max(0, min(self.N-1, row_start))
-            col_end = max(0, min(self.N, col_end + 1))
-            row_end = max(0, min(self.N, row_end + 1))
-            
-            num_voxels = (col_end - col_start) * (row_end - row_start)
-            if num_voxels > 0:
-                p_per_voxel = b_p / num_voxels
-                power_grid[row_start:row_end, col_start:col_end] += p_per_voxel
-                
-        return power_grid, k_layers # Return both
-
-if __name__ == "__main__":
-    pass
+        self._rasterize_recursive(design["blocks"], power_grid, xmin, ymin, dx, dy)
+        return power_grid, k_layers

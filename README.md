@@ -7,59 +7,69 @@ This platform implements a **Local Physics-Informed Digital Twin** for 128G SerD
 | Feature | Legacy Workflow (SPICE/FEM) | Physics-NeMo Digital Twin | **User Benefit** |
 | :--- | :--- | :--- | :--- |
 | **Speed** | Hours per simulation | **Milliseconds** per inference | Iterate 10,000x faster. |
-| **Foundry Import**| Manual data entry | **Direct .itf Parsing** | Direct link to foundry process. |
 | **Physics** | Lumped (Avg Temp) | **3D Voxel Stack** | Detect local hotspots in the BEOL. |
 | **Stackup** | Fixed / Hardcoded | **N-Layer Collapsing** | Automatically merges 10+ metals into a 5-layer model. |
 
 ---
 
-## 🚀 Quick Start: Evaluate Your Design
+## 🚀 Design Entry & Evaluation
 
-### 1. Link your Foundry Tech (`foundry.itf`)
-The system parses standard Interconnect Technology Format (.itf) files to extract layer thicknesses and material properties.
+### 1. Hierarchical Design Format (`my_chip.json`)
+The system supports nested hierarchies, allowing you to define sub-blocks within macros. Power is correctly rasterized across the voxel grid based on local density.
 
-### 2. Define your Design (`my_chip.json`)
-Point to your tech file and define your block coordinates:
 ```json
 {
-  "design_name": "SerDes_v2",
+  "design_name": "SerDes_v3",
   "tech_file": "config/foundry_3nm.itf",
   "blocks": [
-    {"name": "DSP", "x": 200, "y": 200, "w": 1600, "h": 600, "power_mw": 800}
+    {
+      "name": "Analog_Front_End", "x": 100, "y": 800, "w": 500, "h": 400,
+      "sub_blocks": [
+        {"name": "TX_Drv", "x": 10, "y": 10, "w": 100, "h": 100, "power_mw": 120},
+        {"name": "RX_LNA", "x": 200, "y": 10, "w": 100, "h": 100, "power_mw": 40}
+      ]
+    }
   ]
 }
 ```
 
-### 3. Run the Thermal Audit
+### 2. Adaptive ROI Zoom
+Standard resolution is $16 \times 16$ across the die. To analyze a specific dense region (like the RX input stage) at higher fidelity, use the **Region of Interest (ROI)** flag. This "zooms" the physics grid into the specified window.
+
 ```bash
+# Evaluate full die
 python3 src/evaluate_design.py my_chip.json
+
+# Zoom into the AFE region (x:100-600, y:800-1200) for high-res thermal audit
+python3 src/evaluate_design.py my_chip.json --roi 100,800,600,1200
 ```
-**Process Flow:**
-1.  **Parse:** Extracts metal layers from `.itf`.
-2.  **Collapse:** Uses the **Thermal Resistance Rule** to merge N-layers into the 5-layer AI-compatible stack.
-3.  **Solve:** Executes 3D FDM solver using local power densities.
-4.  **Viz:** Generates `plots/user_design_thermal.png`.
+
+### 3. Thermal Stackup Specification
+The `tech_file` (.itf) defines the metal layers. The system automatically collapses these into 5 canonical layers:
+1. **Die:** Active silicon heating.
+2. **BEOL:** Homogenized metal stack (M1-M10).
+3. **Interconnect:** C4 Bumps/Underfill layer.
+4. **Package:** Substrate/Core material.
+5. **Board:** PCB and Heat Sink interface.
 
 ---
 
 ## 🏗 System Architecture
 
 ### 1. The Physics Factory (`serdes_architect`)
-*   **Role:** Acts as the high-fidelity ground truth generator.
-*   **Input:** Multi-layer power volumes.
-*   **Output:** `x_3d.pt` and `y_3d.pt` tensors for AI training.
+High-fidelity ground truth generator. Run `python3 src/data_gen.py` in the sibling repo to refresh training data.
 
 ### 2. The AI Surrogate (`physics_accelerated`)
-*   **Model:** `PhysicsNeMoFNO2D` (5-channel Fourier Neural Operator).
-*   **Inference:** Predicts the temperature at every voxel across the 5 canonical layers.
+5-channel Fourier Neural Operator. Learns the spatial PDE solution to predict temperature fields instantly.
 
-### 3. The Automation Suite
-*   **Adaptive ROI:** Use `--roi xmin,ymin,xmax,ymax` to zoom into hotspots.
-*   **PVT Corners:** Check `src/analyze_pvt_corners.py` for FF/SS/Voltage stress tests.
+### 3. Advanced Analysis Suite
+*   **Aging Analysis:** `src/analyze_spatial_aging.py` - Tracks Eye Margin vs Area over 10 years.
+*   **Isolation Audit:** `src/analyze_isolation.py` - Quantifies Crosstalk vs Distance.
+*   **PVT Corners:** `src/analyze_pvt_corners.py` - Tests FF/SS and Voltage Stress scenarios.
 
 ---
 
 ## 📋 Documentation Reference
 - **[Results.md](Results.md):** Detailed comparison between scalar and spatial modeling.
 - **[reports/signoff_report.md](reports/signoff_report.md):** The latest architectural verdict.
-- **[Developer_Onboarding.md](Developer_Onboarding.md):** Guide for setting up the 2-repo environment.
+- **[Developer_Onboarding.md](Developer_Onboarding.md):** Environment setup guide.
