@@ -1,5 +1,6 @@
 {
   "design_name": "SerDes_SoC_v2_Detailed",
+  "tech_file": "config/foundry_3nm.itf",
   "die_width_um": 2000,
   "die_height_um": 2000,
   "blocks": [

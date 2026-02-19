@@ -1,10 +1,12 @@
 import json
 import numpy as np
 import os
+from src.tech_loader import TechLoader
 
 class DesignLoader:
     def __init__(self, grid_size=16):
         self.N = grid_size
+        self.tech_loader = TechLoader()
         
     def collapse_stack(self, raw_stack):
         """
@@ -70,8 +72,14 @@ class DesignLoader:
         with open(json_path, 'r') as f:
             design = json.load(f)
             
-        # 1. Collapse Stack
-        k_layers = self.collapse_stack(design.get("stackup", []))
+        # 1. Load Stackup (Tech File priority)
+        if "tech_file" in design:
+            print(f"🔄 Overriding stackup with Tech File: {design['tech_file']}")
+            raw_stack = self.tech_loader.load_itf(design["tech_file"])
+        else:
+            raw_stack = design.get("stackup", [])
+            
+        k_layers = self.collapse_stack(raw_stack)
             
         # 2. Determine Viewport
         if roi_bounds:
