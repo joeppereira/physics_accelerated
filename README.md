@@ -7,79 +7,59 @@ This platform implements a **Local Physics-Informed Digital Twin** for 128G SerD
 | Feature | Legacy Workflow (SPICE/FEM) | Physics-NeMo Digital Twin | **User Benefit** |
 | :--- | :--- | :--- | :--- |
 | **Speed** | Hours per simulation | **Milliseconds** per inference | Iterate 10,000x faster. |
-| **Physics** | Lumped (Avg Temp) | **Spatial (3D Voxel)** | Detect local hotspots that kill reliability. |
-| **Stackup** | Fixed / Hardcoded | **N-Layer Parametric** | Optimize metal stacks and packaging materials. |
-| **Aging** | Static Guardband | **Dynamic Reliability** | Predict Year-10 failure probability today. |
+| **Foundry Import**| Manual data entry | **Direct .itf Parsing** | Direct link to foundry process. |
+| **Physics** | Lumped (Avg Temp) | **3D Voxel Stack** | Detect local hotspots in the BEOL. |
+| **Stackup** | Fixed / Hardcoded | **N-Layer Collapsing** | Automatically merges 10+ metals into a 5-layer model. |
 
 ---
 
 ## 🚀 Quick Start: Evaluate Your Design
 
-You don't need to be an AI expert. Just describe your chip layout in a JSON file.
+### 1. Link your Foundry Tech (`foundry.itf`)
+The system parses standard Interconnect Technology Format (.itf) files to extract layer thicknesses and material properties.
 
-### 1. Define your Layout (`my_chip.json`)
+### 2. Define your Design (`my_chip.json`)
+Point to your tech file and define your block coordinates:
 ```json
 {
-  "design_name": "My_Custom_SoC",
-  "die_width_um": 2000,
-  "die_height_um": 2000,
+  "design_name": "SerDes_v2",
+  "tech_file": "config/foundry_3nm.itf",
   "blocks": [
-    {"name": "DSP", "x": 200, "y": 200, "w": 1600, "h": 600, "power_mw": 800},
-    {"name": "TX",  "x": 200, "y": 1000, "w": 200,  "h": 200, "power_mw": 150},
-    {"name": "RX",  "x": 600, "y": 1000, "w": 200,  "h": 200, "power_mw": 80}
-  ],
-  "stackup": [
-    {"name": "Silicon", "type": "die", "thickness": 50, "k": 150},
-    {"name": "M1", "type": "metal", "thickness": 0.1, "k": 200},
-    {"name": "Substrate", "type": "pkg", "thickness": 500, "k": 20}
+    {"name": "DSP", "x": 200, "y": 200, "w": 1600, "h": 600, "power_mw": 800}
   ]
 }
 ```
 
-### 2. Run the Thermal Audit
+### 3. Run the Thermal Audit
 ```bash
 python3 src/evaluate_design.py my_chip.json
 ```
-**Output:**
-*   Peak Temperature Report.
-*   Stackup Efficiency Analysis.
-*   Heatmap Plot: `plots/user_design_thermal.png`
-
-### 3. Zoom In (Adaptive Geometry)
-Need to see the gradients inside the TX block? Use the ROI flag:
-```bash
-# Zoom into x=0..800, y=800..1400
-python3 src/evaluate_design.py my_chip.json --roi 0,800,800,1400
-```
+**Process Flow:**
+1.  **Parse:** Extracts metal layers from `.itf`.
+2.  **Collapse:** Uses the **Thermal Resistance Rule** to merge N-layers into the 5-layer AI-compatible stack.
+3.  **Solve:** Executes 3D FDM solver using local power densities.
+4.  **Viz:** Generates `plots/user_design_thermal.png`.
 
 ---
 
 ## 🏗 System Architecture
 
-### 1. The Physics Engine (Teacher)
-*   **Module:** `src/physics_engine.py`
-*   **Method:** Finite Difference Method (FDM) solving the **3D Heat Diffusion Equation**.
-*   **Capabilities:** 5-Layer Canonical Stack (Die, Metal, C4, Pkg, Board) with N-Layer Collapsing.
+### 1. The Physics Factory (`serdes_architect`)
+*   **Role:** Acts as the high-fidelity ground truth generator.
+*   **Input:** Multi-layer power volumes.
+*   **Output:** `x_3d.pt` and `y_3d.pt` tensors for AI training.
 
-### 2. The AI Surrogate (Student)
-*   **Module:** `src/surrogate.py`
-*   **Model:** `PhysicsNeMoFNO2D` (Fourier Neural Operator).
-*   **Role:** Learns the mapping from `Power_Grid` $	o$ `Temperature_Grid`.
+### 2. The AI Surrogate (`physics_accelerated`)
+*   **Model:** `PhysicsNeMoFNO2D` (5-channel Fourier Neural Operator).
+*   **Inference:** Predicts the temperature at every voxel across the 5 canonical layers.
 
-### 3. The Optimizer (Engineer)
-*   **Module:** `src/gepa.py`
-*   **Algorithm:** Spatial Evolutionary Search.
-*   **Goal:** Find the optimal $(x, y)$ placement to minimize thermal crosstalk.
+### 3. The Automation Suite
+*   **Adaptive ROI:** Use `--roi xmin,ymin,xmax,ymax` to zoom into hotspots.
+*   **PVT Corners:** Check `src/analyze_pvt_corners.py` for FF/SS/Voltage stress tests.
 
 ---
 
-## 📊 Advanced Analysis
-
-*   **Silicon vs. Packaging:** Does a copper lid save silicon area?
-    ```bash
-    python3 src/analyze_package_tradeoff.py
-    ```
-*   **Aging vs. Spreading:** How much area is needed for 10-year life?
-    ```bash
-    python3 src/analyze_spatial_aging.py
-    ```
+## 📋 Documentation Reference
+- **[Results.md](Results.md):** Detailed comparison between scalar and spatial modeling.
+- **[reports/signoff_report.md](reports/signoff_report.md):** The latest architectural verdict.
+- **[Developer_Onboarding.md](Developer_Onboarding.md):** Guide for setting up the 2-repo environment.
