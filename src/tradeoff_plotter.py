@@ -5,37 +5,30 @@ from src.bridge import OptimizerBridge
 from src.physics_engine import generate_spatial_layout
 
 def plot_ai_heatmap():
-    print("📉 Plotting AI-Predicted Thermal Map...")
+    print("📉 Plotting AI-Predicted Thermal Map (64x64)...")
     bridge = OptimizerBridge()
     
-    # Generate a layout
     dist = 200.0
     layout = generate_spatial_layout(3000, 3000, 10000, dist)
     
-    # Create Power Grid
-    power_grid = np.zeros((16, 16))
-    power_grid[layout == 1] = 300.0 / (6*16) # DSP
-    power_grid[layout == 2] = 50.0 / (3*3)   # TX
-    power_grid[layout == 3] = 20.0 / (3*3)   # RX
+    power_grid = np.zeros((64, 64))
+    n_dsp = np.sum(layout == 1)
+    n_tx = np.sum(layout == 2)
+    n_rx = np.sum(layout == 3)
     
-    # Predict
-    temp_map = bridge.predict_heatmap(power_grid)
+    if n_dsp: power_grid[layout == 1] = 300.0 / n_dsp
+    if n_tx: power_grid[layout == 2] = 50.0 / n_tx
+    if n_rx: power_grid[layout == 3] = 20.0 / n_rx
     
-    # Plot
+    temp_vol = bridge.predict_thermal_volume(power_grid)
+    
     plt.figure(figsize=(10, 8))
-    plt.imshow(temp_map, cmap='inferno', interpolation='bicubic')
+    plt.imshow(temp_vol[0], cmap='inferno', interpolation='nearest')
     plt.colorbar(label='Temperature (°C)')
-    plt.title(f"AI-Predicted Heat Map (2D FNO)\nTX-RX Dist: {dist}um")
+    plt.title(f"AI Thermal Map (64x64 Super-Res)\nTX-RX Dist: {dist}um")
     
-    # Annotate blocks roughly
-    plt.text(8, 3, "DSP Core", color='white', ha='center')
-    plt.text(3, 13, "TX", color='white', ha='center')
-    plt.text(3 + int(dist/50), 13, "RX", color='white', ha='center')
-    
-    output = "plots/spatial_heatmap.png"
-    os.makedirs("plots", exist_ok=True)
-    plt.savefig(output)
-    print(f"✅ Heatmap saved to {output}")
+    plt.savefig("plots/spatial_heatmap.png")
+    print("✅ Heatmap saved to plots/spatial_heatmap.png")
 
 if __name__ == "__main__":
     plot_ai_heatmap()

@@ -8,23 +8,28 @@ from src.surrogate import PhysicsNeMoFNO2D
 def train_spatial_model(epochs=50):
     print(f"🚀 Starting 2D FNO Spatial Training ({epochs} epochs)...")
     
-    # Load Voxel Data
-    if os.path.exists("data/x_parametric.pt"):
-        print("   -> Loading Parametric Data (Material-Aware)")
+    x, y = None, None
+    
+    # 1. Try External Super-Res (64x64)
+    if os.path.exists("../serdes_architect/data/x_64.pt"):
+        print("   -> Loading External 64x64 Super-Res Data")
+        x = torch.load("../serdes_architect/data/x_64.pt")
+        y = torch.load("../serdes_architect/data/y_64.pt")
+        
+    # 2. Try Local Parametric (16x16)
+    elif os.path.exists("data/x_parametric.pt"):
+        print("   -> Loading Local Parametric Data")
         x = torch.load("data/x_parametric.pt")
         y = torch.load("data/y_parametric.pt")
-    elif os.path.exists("../serdes_architect/data/x_3d.pt"):
-        print("   -> Loading External Data (SerDes Architect)")
-        x = torch.load("../serdes_architect/data/x_3d.pt")
-        y = torch.load("../serdes_architect/data/y_3d.pt")
-    else:
-        print("   -> Loading Local Data (Dummy Gen)")
-        try:
-            x = torch.load("data/x_3d.pt")
-            y = torch.load("data/y_3d.pt")
-        except:
-            print("❌ Error: No 3D data found.")
-            return
+        
+    # 3. Try Local 3D (16x16)
+    elif os.path.exists("data/x_3d.pt"):
+        print("   -> Loading Local 3D Data")
+        x = torch.load("data/x_3d.pt")
+        y = torch.load("data/y_3d.pt")
+        
+    if x is None:
+        print("❌ Error: No training data found.")
         return
 
     model = PhysicsNeMoFNO2D()
